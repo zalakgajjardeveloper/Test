@@ -43,7 +43,7 @@ class MainActivityViewModel : ViewModel() {
     fun filterData(newText: String) {
         val filterList = ArrayList<String>()
         for (item in data[currentPosition]) {
-            if (item.contains(newText))
+            if (item.contains(newText,true))
                 filterList.add(item)
         }
 
