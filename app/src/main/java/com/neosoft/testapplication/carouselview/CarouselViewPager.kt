@@ -1,81 +1,72 @@
-package com.neosoft.testapplication.carouselview;
+package com.neosoft.testapplication.carouselview
 
-import android.content.Context;
-import android.util.AttributeSet;
-import android.view.MotionEvent;
-import android.view.animation.Interpolator;
+import android.content.Context
+import android.util.AttributeSet
+import android.view.MotionEvent
+import android.view.animation.Interpolator
+import androidx.viewpager.widget.ViewPager
 
-import androidx.viewpager.widget.ViewPager;
-
-import java.lang.reflect.Field;
-
-public class CarouselViewPager extends ViewPager {
-
-    private ImageClickListener imageClickListener;
-    private float oldX = 0, newX = 0, sens = 5;
-
-    public void setImageClickListener(ImageClickListener imageClickListener) {
-        this.imageClickListener = imageClickListener;
+class CarouselViewPager : ViewPager {
+    private var imageClickListener: ImageClickListener? = null
+    private var oldX = 0f
+    private var newX = 0f
+    private val sens = 5f
+    fun setImageClickListener(imageClickListener: ImageClickListener?) {
+        this.imageClickListener = imageClickListener
     }
 
-    public CarouselViewPager(Context context) {
-        super(context);
-        postInitViewPager();
+    constructor(context: Context?) : super(context!!) {
+        postInitViewPager()
     }
 
-    public CarouselViewPager(Context context, AttributeSet attrs) {
-        super(context, attrs);
-        postInitViewPager();
+    constructor(context: Context?, attrs: AttributeSet?) : super(
+        context!!, attrs
+    ) {
+        postInitViewPager()
     }
 
-    private CarouselViewPagerScroller mScroller = null;
+    private var mScroller: CarouselViewPagerScroller? = null
 
     /**
      * Override the Scroller instance with our own class so we can change the
      * duration
      */
-    private void postInitViewPager() {
+    private fun postInitViewPager() {
         try {
-            Class<?> viewpager = ViewPager.class;
-            Field scroller = viewpager.getDeclaredField("mScroller");
-            scroller.setAccessible(true);
-            Field interpolator = viewpager.getDeclaredField("sInterpolator");
-            interpolator.setAccessible(true);
-
-            mScroller = new CarouselViewPagerScroller(getContext(),
-                    (Interpolator) interpolator.get(null));
-            scroller.set(this, mScroller);
-        } catch (Exception e) {
+            val viewpager: Class<*> = ViewPager::class.java
+            val scroller = viewpager.getDeclaredField("mScroller")
+            scroller.isAccessible = true
+            val interpolator = viewpager.getDeclaredField("sInterpolator")
+            interpolator.isAccessible = true
+            mScroller = CarouselViewPagerScroller(
+                context,
+                interpolator[null] as Interpolator
+            )
+            scroller[this] = mScroller
+        } catch (e: Exception) {
         }
     }
 
     /**
      * Set the factor by which the duration will change
      */
-    public void setTransitionVelocity(int scrollFactor) {
-        mScroller.setmScrollDuration(scrollFactor);
+    fun setTransitionVelocity(scrollFactor: Int) {
+        mScroller!!.setmScrollDuration(scrollFactor)
     }
 
-    @Override
-    public boolean onTouchEvent(MotionEvent ev) {
-        switch (ev.getAction()) {
-            case MotionEvent.ACTION_DOWN:
-                oldX = ev.getX();
-                break;
-
-            case MotionEvent.ACTION_UP:
-                newX = ev.getX();
+    override fun onTouchEvent(ev: MotionEvent): Boolean {
+        when (ev.action) {
+            MotionEvent.ACTION_DOWN -> oldX = ev.x
+            MotionEvent.ACTION_UP -> {
+                newX = ev.x
                 if (Math.abs(oldX - newX) < sens) {
-                    if(imageClickListener != null)
-                        imageClickListener.onClick(getCurrentItem());
-                    return true;
+                    if (imageClickListener != null) imageClickListener!!.onClick(currentItem)
+                    return true
                 }
-                oldX = 0;
-                newX = 0;
-                break;
+                oldX = 0f
+                newX = 0f
+            }
         }
-
-        return super.onTouchEvent(ev);
+        return super.onTouchEvent(ev)
     }
-
 }

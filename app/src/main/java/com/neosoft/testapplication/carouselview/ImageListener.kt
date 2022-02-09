@@ -1,9 +1,7 @@
-package com.neosoft.testapplication.carouselview;
+package com.neosoft.testapplication.carouselview
 
-import android.widget.ImageView;
+import android.widget.ImageView
 
-public interface ImageListener {
-
-    void setImageForPosition(int position, ImageView imageView);
-
+interface ImageListener {
+    fun setImageForPosition(position: Int, imageView: ImageView?)
 }

@@ -1,6 +1,7 @@
 package com.neosoft.testapplication.ui
 
 import android.os.Bundle
+import android.widget.ImageView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SearchView
 import androidx.databinding.DataBindingUtil
@@ -53,8 +54,10 @@ class MainActivity : AppCompatActivity() {
 
 
     private val imageListener =
-        ImageListener { position, imageView ->
-            imageView.setImageResource(viewModel.sampleImages[position])
+        object : ImageListener {
+            override fun setImageForPosition(position: Int, imageView: ImageView?) {
+                imageView?.setImageResource(viewModel.sampleImages[position])
+            }
         }
 
 

@@ -1,5 +1,5 @@
-package com.neosoft.testapplication.carouselview;
+package com.neosoft.testapplication.carouselview
 
-public interface ImageClickListener {
-    void onClick(int position);
+interface ImageClickListener {
+    fun onClick(position: Int)
 }

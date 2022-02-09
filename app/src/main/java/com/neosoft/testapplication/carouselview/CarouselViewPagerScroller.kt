@@ -1,39 +1,28 @@
-package com.neosoft.testapplication.carouselview;
+package com.neosoft.testapplication.carouselview
 
-import android.content.Context;
-import android.view.animation.Interpolator;
-import android.widget.Scroller;
+import android.content.Context
+import android.view.animation.Interpolator
+import android.widget.Scroller
 
-public class CarouselViewPagerScroller extends Scroller {
+class CarouselViewPagerScroller : Scroller {
+    private var mScrollDuration = 600
 
+    constructor(context: Context?) : super(context) {}
+    constructor(context: Context?, interpolator: Interpolator?) : super(context, interpolator) {}
 
-    private int mScrollDuration = 600;
-
-    public CarouselViewPagerScroller(Context context) {
-        super(context);
+    fun getmScrollDuration(): Int {
+        return mScrollDuration
     }
 
-    public CarouselViewPagerScroller(Context context, Interpolator interpolator) {
-        super(context, interpolator);
+    fun setmScrollDuration(mScrollDuration: Int) {
+        this.mScrollDuration = mScrollDuration
     }
 
-    public int getmScrollDuration() {
-        return mScrollDuration;
+    override fun startScroll(startX: Int, startY: Int, dx: Int, dy: Int, duration: Int) {
+        super.startScroll(startX, startY, dx, dy, mScrollDuration)
     }
 
-    public void setmScrollDuration(int mScrollDuration) {
-        this.mScrollDuration = mScrollDuration;
+    override fun startScroll(startX: Int, startY: Int, dx: Int, dy: Int) {
+        super.startScroll(startX, startY, dx, dy, mScrollDuration)
     }
-
-    @Override
-    public void startScroll(int startX, int startY, int dx, int dy, int duration) {
-        super.startScroll(startX, startY, dx, dy, mScrollDuration);
-    }
-
-    @Override
-    public void startScroll(int startX, int startY, int dx, int dy) {
-        super.startScroll(startX, startY, dx, dy, mScrollDuration);
-    }
-
-
 }

@@ -1,155 +1,186 @@
-package com.neosoft.testapplication.carouselview;
+package com.neosoft.testapplication.carouselview
 
-import android.annotation.TargetApi;
-import android.content.Context;
-import android.content.res.TypedArray;
-import android.graphics.drawable.Drawable;
-import android.os.Build;
-import android.util.AttributeSet;
-import android.view.Gravity;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.FrameLayout;
-import android.widget.ImageView;
-import android.widget.LinearLayout;
-import android.widget.RemoteViews.RemoteView;
-
-import androidx.viewpager.widget.PagerAdapter;
-import androidx.viewpager.widget.ViewPager;
-
-import com.neosoft.testapplication.R;
-
-import java.util.Timer;
-import java.util.TimerTask;
+import android.annotation.TargetApi
+import android.content.Context
+import android.graphics.drawable.Drawable
+import android.os.Build
+import android.util.AttributeSet
+import android.view.Gravity
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.FrameLayout
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.RemoteViews.RemoteView
+import androidx.viewpager.widget.PagerAdapter
+import androidx.viewpager.widget.ViewPager
+import androidx.viewpager.widget.ViewPager.OnPageChangeListener
+import com.neosoft.testapplication.R
+import java.util.*
 
 @RemoteView
-public class CarouselView extends FrameLayout {
+class CarouselView : FrameLayout {
+    private val DEFAULT_GRAVITY = Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM
+    private var mPageCount = 0
+    private var slideInterval = DEFAULT_SLIDE_INTERVAL
+    private var mIndicatorGravity = DEFAULT_GRAVITY
+    private var indicatorMarginVertical = 0
+    private var indicatorMarginHorizontal = 0
+    private var pageTransformInterval = DEFAULT_SLIDE_VELOCITY
+    private var indicatorVisibility = DEFAULT_INDICATOR_VISIBILITY
+    var containerViewPager: CarouselViewPager? = null
+        private set
+    private var mIndicator: CirclePageIndicator? = null
+    private var mViewListener: ViewListener? = null
+    private var mImageListener: ImageListener? = null
+    private var imageClickListener: ImageClickListener? = null
+    private var swipeTimer: Timer? = null
+    private var swipeTask: SwipeTask? = null
+    var isAutoPlay = false
+        private set
+    var isDisableAutoPlayOnUserInteraction = false
+        private set
+    private var animateOnBoundary = true
+    private var previousState = 0
 
-    private final int DEFAULT_GRAVITY = Gravity.CENTER_HORIZONTAL | Gravity.BOTTOM;
+    /**
+     * Sets page transition animation.
+     *
+     * @param pageTransformer Choose from zoom, flow, depth, slide_over .
+     */
+    var pageTransformer: ViewPager.PageTransformer? = null
+        set(pageTransformer) {
+            field = pageTransformer
+            containerViewPager!!.setPageTransformer(true, pageTransformer)
+        }
 
-    private static final int DEFAULT_SLIDE_INTERVAL = 3500;
-    private static final int DEFAULT_SLIDE_VELOCITY = 400;
-    public static final int DEFAULT_INDICATOR_VISIBILITY = 0;
-
-
-    private int mPageCount;
-    private int slideInterval = DEFAULT_SLIDE_INTERVAL;
-    private int mIndicatorGravity = DEFAULT_GRAVITY;
-    private int indicatorMarginVertical;
-    private int indicatorMarginHorizontal;
-    private int pageTransformInterval = DEFAULT_SLIDE_VELOCITY;
-    private int indicatorVisibility = DEFAULT_INDICATOR_VISIBILITY;
-
-    private CarouselViewPager containerViewPager;
-    private CirclePageIndicator mIndicator;
-    private ViewListener mViewListener = null;
-    private ImageListener mImageListener = null;
-    private ImageClickListener imageClickListener = null;
-
-    private Timer swipeTimer;
-    private SwipeTask swipeTask;
-
-    private boolean autoPlay;
-    private boolean disableAutoPlayOnUserInteraction;
-    private boolean animateOnBoundary = true;
-
-    private int previousState;
-
-    private ViewPager.PageTransformer pageTransformer;
-
-    public CarouselView(Context context) {
-        super(context);
+    constructor(context: Context?) : super(context!!) {}
+    constructor(context: Context, attrs: AttributeSet?) : super(context, attrs) {
+        initView(context, attrs, 0, 0)
     }
 
-    public CarouselView(Context context, AttributeSet attrs) {
-        super(context, attrs);
-        initView(context, attrs, 0, 0);
-    }
-
-    public CarouselView(Context context, AttributeSet attrs, int defStyleAttr) {
-        super(context, attrs, defStyleAttr);
-        initView(context, attrs, defStyleAttr, 0);
+    constructor(context: Context, attrs: AttributeSet?, defStyleAttr: Int) : super(
+        context,
+        attrs,
+        defStyleAttr
+    ) {
+        initView(context, attrs, defStyleAttr, 0)
     }
 
     @TargetApi(Build.VERSION_CODES.LOLLIPOP)
-    public CarouselView(Context context, AttributeSet attrs, int defStyleAttr, int defStyleRes) {
-        super(context, attrs, defStyleAttr, defStyleRes);
-        initView(context, attrs, defStyleAttr, defStyleRes);
+    constructor(
+        context: Context,
+        attrs: AttributeSet?,
+        defStyleAttr: Int,
+        defStyleRes: Int
+    ) : super(context, attrs, defStyleAttr, defStyleRes) {
+        initView(context, attrs, defStyleAttr, defStyleRes)
     }
 
-    private void initView(Context context, AttributeSet attrs, int defStyleAttr, int defStyleRes) {
-        if (isInEditMode()) {
-            return;
+    private fun initView(
+        context: Context,
+        attrs: AttributeSet?,
+        defStyleAttr: Int,
+        defStyleRes: Int
+    ) {
+        if (isInEditMode) {
+            return
         } else {
-            View view = LayoutInflater.from(context).inflate(R.layout.view_carousel, this, true);
-            containerViewPager = (CarouselViewPager) view.findViewById(R.id.containerViewPager);
-            mIndicator = (CirclePageIndicator) view.findViewById(R.id.indicator);
-
-            containerViewPager.addOnPageChangeListener(carouselOnPageChangeListener);
+            val view = LayoutInflater.from(context).inflate(R.layout.view_carousel, this, true)
+            containerViewPager =
+                view.findViewById<View>(R.id.containerViewPager) as CarouselViewPager
+            mIndicator = view.findViewById<View>(R.id.indicator) as CirclePageIndicator
+            containerViewPager!!.addOnPageChangeListener(carouselOnPageChangeListener)
 
 
             //Retrieve styles attributes
-            TypedArray a = context.obtainStyledAttributes(attrs, R.styleable.CarouselView, defStyleAttr, 0);
+            val a = context.obtainStyledAttributes(attrs, R.styleable.CarouselView, defStyleAttr, 0)
             try {
-                indicatorMarginVertical = a.getDimensionPixelSize(R.styleable.CarouselView_indicatorMarginVertical, getResources().getDimensionPixelSize(R.dimen.default_indicator_margin_vertical));
-                indicatorMarginHorizontal = a.getDimensionPixelSize(R.styleable.CarouselView_indicatorMarginHorizontal, getResources().getDimensionPixelSize(R.dimen.default_indicator_margin_horizontal));
-                setPageTransformInterval(a.getInt(R.styleable.CarouselView_pageTransformInterval, DEFAULT_SLIDE_VELOCITY));
-                setSlideInterval(a.getInt(R.styleable.CarouselView_slideInterval, DEFAULT_SLIDE_INTERVAL));
-                setOrientation(a.getInt(R.styleable.CarouselView_indicatorOrientation, LinearLayout.HORIZONTAL));
-                setIndicatorGravity(a.getInt(R.styleable.CarouselView_indicatorGravity, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL));
-                setAutoPlay(a.getBoolean(R.styleable.CarouselView_autoPlay, true));
-                setDisableAutoPlayOnUserInteraction(a.getBoolean(R.styleable.CarouselView_disableAutoPlayOnUserInteraction, false));
-                setAnimateOnBoundary(a.getBoolean(R.styleable.CarouselView_animateOnBoundary, true));
-                setPageTransformer(a.getInt(R.styleable.CarouselView_pageTransformer, CarouselViewPagerTransformer.DEFAULT));
-
-                indicatorVisibility = a.getInt(R.styleable.CarouselView_indicatorVisibility, CarouselView.DEFAULT_INDICATOR_VISIBILITY);
-
-                setIndicatorVisibility(indicatorVisibility);
-
-                if (indicatorVisibility == View.VISIBLE) {
-                    int fillColor = a.getColor(R.styleable.CarouselView_fillColor, 0);
+                indicatorMarginVertical = a.getDimensionPixelSize(
+                    R.styleable.CarouselView_indicatorMarginVertical,
+                    resources.getDimensionPixelSize(R.dimen.default_indicator_margin_vertical)
+                )
+                indicatorMarginHorizontal = a.getDimensionPixelSize(
+                    R.styleable.CarouselView_indicatorMarginHorizontal,
+                    resources.getDimensionPixelSize(R.dimen.default_indicator_margin_horizontal)
+                )
+                setPageTransformInterval(
+                    a.getInt(
+                        R.styleable.CarouselView_pageTransformInterval,
+                        DEFAULT_SLIDE_VELOCITY
+                    )
+                )
+                setSlideInterval(
+                    a.getInt(
+                        R.styleable.CarouselView_slideInterval,
+                        DEFAULT_SLIDE_INTERVAL
+                    )
+                )
+                orientation =
+                    a.getInt(R.styleable.CarouselView_indicatorOrientation, LinearLayout.HORIZONTAL)
+                indicatorGravity = a.getInt(
+                    R.styleable.CarouselView_indicatorGravity,
+                    Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+                )
+                isAutoPlay = a.getBoolean(R.styleable.CarouselView_autoPlay, true)
+                isDisableAutoPlayOnUserInteraction =
+                    a.getBoolean(R.styleable.CarouselView_disableAutoPlayOnUserInteraction, false)
+                setAnimateOnBoundary(a.getBoolean(R.styleable.CarouselView_animateOnBoundary, true))
+                setPageTransformer(
+                    a.getInt(
+                        R.styleable.CarouselView_pageTransformer,
+                        CarouselViewPagerTransformer.DEFAULT
+                    )
+                )
+                indicatorVisibility = a.getInt(
+                    R.styleable.CarouselView_indicatorVisibility,
+                    DEFAULT_INDICATOR_VISIBILITY
+                )
+                setIndicatorVisibility(indicatorVisibility)
+                if (indicatorVisibility == VISIBLE) {
+                    var fillColor = a.getColor(R.styleable.CarouselView_fillColor, 0)
                     if (fillColor != 0) {
-                        setFillColor(fillColor);
+                        fillColor = fillColor
                     }
-                    int pageColor = a.getColor(R.styleable.CarouselView_pageColor, 0);
+                    var pageColor = a.getColor(R.styleable.CarouselView_pageColor, 0)
                     if (pageColor != 0) {
-                        setPageColor(pageColor);
+                        pageColor = pageColor
                     }
-                    float radius = a.getDimensionPixelSize(R.styleable.CarouselView_radius, 0);
-                    if (radius != 0) {
-                        setRadius(radius);
+                    var radius =
+                        a.getDimensionPixelSize(R.styleable.CarouselView_radius, 0).toFloat()
+                    if (radius != 0f) {
+                        radius = radius
                     }
-                    setSnap(a.getBoolean(R.styleable.CarouselView_snap, true));
-                    int strokeColor = a.getColor(R.styleable.CarouselView_strokeColor, 0);
+                    isSnap = a.getBoolean(R.styleable.CarouselView_snap, true)
+                    var strokeColor = a.getColor(R.styleable.CarouselView_strokeColor, 0)
                     if (strokeColor != 0) {
-                        setStrokeColor(strokeColor);
+                        strokeColor = strokeColor
                     }
-                    float strokeWidth = a.getDimensionPixelSize(R.styleable.CarouselView_strokeWidth, 0);
-                    if (strokeWidth != 0) {
-                        setStrokeWidth(strokeWidth);
+                    var strokeWidth =
+                        a.getDimensionPixelSize(R.styleable.CarouselView_strokeWidth, 0).toFloat()
+                    if (strokeWidth != 0f) {
+                        strokeWidth = strokeWidth
                     }
                 }
             } finally {
-                a.recycle();
+                a.recycle()
             }
         }
     }
 
-    @Override
-    protected void onDetachedFromWindow() {
-        super.onDetachedFromWindow();
-        resetScrollTimer();
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        resetScrollTimer()
     }
 
-    @Override
-    protected void onAttachedToWindow() {
-        super.onAttachedToWindow();
-        playCarousel();
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        playCarousel()
     }
 
-    public int getSlideInterval() {
-        return slideInterval;
+    fun getSlideInterval(): Int {
+        return slideInterval
     }
 
     /**
@@ -157,11 +188,10 @@ public class CarouselView extends FrameLayout {
      *
      * @param slideInterval integer
      */
-    public void setSlideInterval(int slideInterval) {
-        this.slideInterval = slideInterval;
-
+    fun setSlideInterval(slideInterval: Int) {
+        this.slideInterval = slideInterval
         if (null != containerViewPager) {
-            playCarousel();
+            playCarousel()
         }
     }
 
@@ -170,11 +200,10 @@ public class CarouselView extends FrameLayout {
      *
      * @param slideInterval integer
      */
-    public void reSetSlideInterval(int slideInterval) {
-        setSlideInterval(slideInterval);
-
+    fun reSetSlideInterval(slideInterval: Int) {
+        setSlideInterval(slideInterval)
         if (null != containerViewPager) {
-            playCarousel();
+            playCarousel()
         }
     }
 
@@ -183,39 +212,23 @@ public class CarouselView extends FrameLayout {
      *
      * @param pageTransformInterval integer
      */
-    public void setPageTransformInterval(int pageTransformInterval) {
+    fun setPageTransformInterval(pageTransformInterval: Int) {
         if (pageTransformInterval > 0) {
-            this.pageTransformInterval = pageTransformInterval;
+            this.pageTransformInterval = pageTransformInterval
         } else {
-            this.pageTransformInterval = DEFAULT_SLIDE_VELOCITY;
+            this.pageTransformInterval = DEFAULT_SLIDE_VELOCITY
         }
-
-        containerViewPager.setTransitionVelocity(pageTransformInterval);
-    }
-
-    public ViewPager.PageTransformer getPageTransformer() {
-        return pageTransformer;
+        containerViewPager!!.setTransitionVelocity(pageTransformInterval)
     }
 
     /**
      * Sets page transition animation.
      *
-     * @param pageTransformer Choose from zoom, flow, depth, slide_over .
-     */
-    public void setPageTransformer(ViewPager.PageTransformer pageTransformer) {
-        this.pageTransformer = pageTransformer;
-        containerViewPager.setPageTransformer(true, pageTransformer);
-    }
-
-    /**
-     * Sets page transition animation.
-     *
-     * @param transformer Pass {@link CarouselViewPagerTransformer#FLOW}, {@link CarouselViewPagerTransformer#ZOOM}, {@link CarouselViewPagerTransformer#DEPTH} or {@link CarouselViewPagerTransformer#SLIDE_OVER}
+     * @param transformer Pass [CarouselViewPagerTransformer.FLOW], [CarouselViewPagerTransformer.ZOOM], [CarouselViewPagerTransformer.DEPTH] or [CarouselViewPagerTransformer.SLIDE_OVER]
      * @attr
      */
-    public void setPageTransformer(@CarouselViewPagerTransformer.Transformer int transformer) {
-        setPageTransformer(new CarouselViewPagerTransformer(transformer));
-
+    fun setPageTransformer(@CarouselViewPagerTransformer.Transformer transformer: Int) {
+        pageTransformer = CarouselViewPagerTransformer(transformer)
     }
 
     /**
@@ -223,344 +236,276 @@ public class CarouselView extends FrameLayout {
      *
      * @param animateOnBoundary .
      */
-    public void setAnimateOnBoundary(boolean animateOnBoundary) {
-        this.animateOnBoundary = animateOnBoundary;
+    fun setAnimateOnBoundary(animateOnBoundary: Boolean) {
+        this.animateOnBoundary = animateOnBoundary
     }
 
-    public boolean isAutoPlay() {
-        return autoPlay;
-    }
-
-    private void setAutoPlay(boolean autoPlay) {
-        this.autoPlay = autoPlay;
-    }
-
-    public boolean isDisableAutoPlayOnUserInteraction() {
-        return disableAutoPlayOnUserInteraction;
-    }
-
-    private void setDisableAutoPlayOnUserInteraction(boolean disableAutoPlayOnUserInteraction) {
-        this.disableAutoPlayOnUserInteraction = disableAutoPlayOnUserInteraction;
-    }
-
-    private void setData() {
-        CarouselPagerAdapter carouselPagerAdapter = new CarouselPagerAdapter(getContext());
-        containerViewPager.setAdapter(carouselPagerAdapter);
-        if(getPageCount() > 1) {
-            mIndicator.setViewPager(containerViewPager);
-            mIndicator.requestLayout();
-            mIndicator.invalidate();
-            containerViewPager.setOffscreenPageLimit(getPageCount());
-            playCarousel();
+    private fun setData() {
+        val carouselPagerAdapter = CarouselPagerAdapter(context)
+        containerViewPager!!.adapter = carouselPagerAdapter
+        if (pageCount > 1) {
+            mIndicator!!.setViewPager(containerViewPager)
+            mIndicator!!.requestLayout()
+            mIndicator!!.invalidate()
+            containerViewPager!!.offscreenPageLimit = pageCount
+            playCarousel()
         }
     }
 
-    private void stopScrollTimer() {
+    private fun stopScrollTimer() {
         if (null != swipeTimer) {
-            swipeTimer.cancel();
+            swipeTimer!!.cancel()
         }
-
         if (null != swipeTask) {
-            swipeTask.cancel();
+            swipeTask!!.cancel()
         }
     }
 
-
-    private void resetScrollTimer() {
-        stopScrollTimer();
-
-        swipeTask = new SwipeTask();
-        swipeTimer = new Timer();
+    private fun resetScrollTimer() {
+        stopScrollTimer()
+        swipeTask = SwipeTask()
+        swipeTimer = Timer()
     }
-
 
     /**
      * Starts auto scrolling if
      */
-    public void playCarousel() {
-
-        resetScrollTimer();
-
-        if (autoPlay && slideInterval > 0 && containerViewPager.getAdapter() != null && containerViewPager.getAdapter().getCount() > 1) {
-
-            swipeTimer.schedule(swipeTask, slideInterval, slideInterval);
+    fun playCarousel() {
+        resetScrollTimer()
+        if (isAutoPlay && slideInterval > 0 && containerViewPager!!.adapter != null && containerViewPager!!.adapter!!
+                .count > 1
+        ) {
+            swipeTimer!!.schedule(swipeTask, slideInterval.toLong(), slideInterval.toLong())
         }
     }
 
     /**
      * Pause auto scrolling unless user interacts provided autoPlay is enabled.
      */
-    public void pauseCarousel() {
-
-        resetScrollTimer();
+    fun pauseCarousel() {
+        resetScrollTimer()
     }
 
     /**
      * Stops auto scrolling.
      */
-    public void stopCarousel() {
-
-        this.autoPlay = false;
+    fun stopCarousel() {
+        isAutoPlay = false
     }
 
-
-    private class CarouselPagerAdapter extends PagerAdapter {
-        private Context mContext;
-
-        public CarouselPagerAdapter(Context context) {
-            mContext = context;
-        }
-
-        @Override
-        public Object instantiateItem(ViewGroup collection, int position) {
-
-            Object objectToReturn;
+    private inner class CarouselPagerAdapter(private val mContext: Context) : PagerAdapter() {
+        override fun instantiateItem(collection: ViewGroup, position: Int): Any {
+            val objectToReturn: Any
 
             //Either let user set image to ImageView
             if (mImageListener != null) {
-
-                ImageView imageView = new ImageView(mContext);
-                imageView.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));  //setting image position
-                imageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
-
-                objectToReturn = imageView;
-                mImageListener.setImageForPosition(position, imageView);
-
-                collection.addView(imageView);
+                val imageView = ImageView(mContext)
+                imageView.layoutParams = LayoutParams(
+                    LayoutParams.MATCH_PARENT,
+                    LayoutParams.WRAP_CONTENT
+                ) //setting image position
+                imageView.scaleType = ImageView.ScaleType.CENTER_CROP
+                objectToReturn = imageView
+                mImageListener!!.setImageForPosition(position, imageView)
+                collection.addView(imageView)
 
                 //Or let user add his own ViewGroup
             } else if (mViewListener != null) {
-
-                View view = mViewListener.setViewForPosition(position);
-
+                val view = mViewListener!!.setViewForPosition(position)
                 if (null != view) {
-                    objectToReturn = view;
-                    collection.addView(view);
+                    objectToReturn = view
+                    collection.addView(view)
                 } else {
-                    throw new RuntimeException("View can not be null for position " + position);
+                    throw RuntimeException("View can not be null for position $position")
                 }
-
             } else {
-                throw new RuntimeException("View must set " + ImageListener.class.getSimpleName() + " or " + ViewListener.class.getSimpleName() + ".");
+                throw RuntimeException("View must set " + ImageListener::class.java.simpleName + " or " + ViewListener::class.java.simpleName + ".")
             }
-
-            return objectToReturn;
+            return objectToReturn
         }
 
-        @Override
-        public void destroyItem(ViewGroup collection, int position, Object view) {
-            collection.removeView((View) view);
+        override fun destroyItem(collection: ViewGroup, position: Int, view: Any) {
+            collection.removeView(view as View)
         }
 
-        @Override
-        public boolean isViewFromObject(View view, Object object) {
-            return view == object;
+        override fun isViewFromObject(view: View, `object`: Any): Boolean {
+            return view === `object`
         }
 
-        @Override
-        public int getCount() {
-            return getPageCount();
+        override fun getCount(): Int {
+            return pageCount
         }
     }
 
-    ViewPager.OnPageChangeListener carouselOnPageChangeListener = new ViewPager.OnPageChangeListener() {
-        @Override
-        public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {
+    var carouselOnPageChangeListener: OnPageChangeListener = object : OnPageChangeListener {
+        override fun onPageScrolled(
+            position: Int,
+            positionOffset: Float,
+            positionOffsetPixels: Int
+        ) {
 
             //Programmatic scroll
-
         }
 
-        @Override
-        public void onPageSelected(int position) {
-
-        }
-
-        @Override
-        public void onPageScrollStateChanged(int state) {
+        override fun onPageSelected(position: Int) {}
+        override fun onPageScrollStateChanged(state: Int) {
 
             //User initiated scroll
-
             if (previousState == ViewPager.SCROLL_STATE_DRAGGING
-                    && state == ViewPager.SCROLL_STATE_SETTLING) {
-
-                if (disableAutoPlayOnUserInteraction) {
-                    pauseCarousel();
+                && state == ViewPager.SCROLL_STATE_SETTLING
+            ) {
+                if (isDisableAutoPlayOnUserInteraction) {
+                    pauseCarousel()
                 } else {
-                    playCarousel();
+                    playCarousel()
                 }
-
             } else if (previousState == ViewPager.SCROLL_STATE_SETTLING
-                    && state == ViewPager.SCROLL_STATE_IDLE) {
+                && state == ViewPager.SCROLL_STATE_IDLE
+            ) {
             }
-
-            previousState = state;
-
-        }
-    };
-
-    private class SwipeTask extends TimerTask {
-        public void run() {
-            containerViewPager.post(new Runnable() {
-                public void run() {
-
-                    int nextPage = (containerViewPager.getCurrentItem() + 1) % getPageCount();
-
-                    containerViewPager.setCurrentItem(nextPage, 0 != nextPage || animateOnBoundary);
-                }
-            });
+            previousState = state
         }
     }
 
-    public void setImageListener(ImageListener mImageListener) {
-        this.mImageListener = mImageListener;
+    private inner class SwipeTask : TimerTask() {
+        override fun run() {
+            containerViewPager!!.post {
+                val nextPage = (containerViewPager!!.currentItem + 1) % pageCount
+                containerViewPager!!.setCurrentItem(nextPage, 0 != nextPage || animateOnBoundary)
+            }
+        }
     }
 
-    public void setViewListener(ViewListener mViewListener) {
-        this.mViewListener = mViewListener;
+    fun setImageListener(mImageListener: ImageListener?) {
+        this.mImageListener = mImageListener
     }
 
-    public void setImageClickListener(ImageClickListener imageClickListener) {
-        this.imageClickListener = imageClickListener;
-        containerViewPager.setImageClickListener(imageClickListener);
+    fun setViewListener(mViewListener: ViewListener?) {
+        this.mViewListener = mViewListener
     }
 
-    public int getPageCount() {
-        return mPageCount;
+    fun setImageClickListener(imageClickListener: ImageClickListener?) {
+        this.imageClickListener = imageClickListener
+        containerViewPager!!.setImageClickListener(imageClickListener)
     }
 
-    public void setPageCount(int mPageCount) {
-        this.mPageCount = mPageCount;
+    var pageCount: Int
+        get() = mPageCount
+        set(mPageCount) {
+            this.mPageCount = mPageCount
+            setData()
+        }
 
-        setData();
-    }
-
-    public void addOnPageChangeListener(ViewPager.OnPageChangeListener listener) {
-        containerViewPager.addOnPageChangeListener(listener);
-    }
-
-    public void clearOnPageChangeListeners() {
-        containerViewPager.clearOnPageChangeListeners();
+    fun addOnPageChangeListener(listener: OnPageChangeListener?) {
+        containerViewPager!!.addOnPageChangeListener(listener!!)
     }
 
-    public void setCurrentItem(int item) {
-        containerViewPager.setCurrentItem(item);
-    }
-    
-    public void setCurrentItem(int item, boolean smoothScroll) {
-        containerViewPager.setCurrentItem(item, smoothScroll);
+    fun clearOnPageChangeListeners() {
+        containerViewPager!!.clearOnPageChangeListeners()
     }
 
-    public int getCurrentItem() {
-        return containerViewPager.getCurrentItem();
+    fun setCurrentItem(item: Int, smoothScroll: Boolean) {
+        containerViewPager!!.setCurrentItem(item, smoothScroll)
     }
 
-    public int getIndicatorMarginVertical() {
-        return indicatorMarginVertical;
+    var currentItem: Int
+        get() = containerViewPager!!.currentItem
+        set(item) {
+            containerViewPager!!.currentItem = item
+        }
+
+    fun getIndicatorMarginVertical(): Int {
+        return indicatorMarginVertical
     }
 
-    public void setIndicatorMarginVertical(int _indicatorMarginVertical) {
-        indicatorMarginVertical = _indicatorMarginVertical;
-        LayoutParams params = (LayoutParams) getLayoutParams();
-        params.topMargin = indicatorMarginVertical;
-        params.bottomMargin = indicatorMarginVertical;
+    fun setIndicatorMarginVertical(_indicatorMarginVertical: Int) {
+        indicatorMarginVertical = _indicatorMarginVertical
+        val params = layoutParams as LayoutParams
+        params.topMargin = indicatorMarginVertical
+        params.bottomMargin = indicatorMarginVertical
     }
 
-    public int getIndicatorMarginHorizontal() {
-        return indicatorMarginHorizontal;
-    }
-    
-    public CarouselViewPager getContainerViewPager() {
-        return containerViewPager;
+    fun getIndicatorMarginHorizontal(): Int {
+        return indicatorMarginHorizontal
     }
 
-    public void setIndicatorMarginHorizontal(int _indicatorMarginHorizontal) {
-        indicatorMarginHorizontal = _indicatorMarginHorizontal;
-        LayoutParams params = (LayoutParams) getLayoutParams();
-        params.leftMargin = indicatorMarginHorizontal;
-        params.rightMargin = indicatorMarginHorizontal;
+    fun setIndicatorMarginHorizontal(_indicatorMarginHorizontal: Int) {
+        indicatorMarginHorizontal = _indicatorMarginHorizontal
+        val params = layoutParams as LayoutParams
+        params.leftMargin = indicatorMarginHorizontal
+        params.rightMargin = indicatorMarginHorizontal
     }
 
-    public int getIndicatorGravity() {
-        return mIndicatorGravity;
+    var indicatorGravity: Int
+        get() = mIndicatorGravity
+        set(gravity) {
+            mIndicatorGravity = gravity
+            val params = LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            params.gravity = mIndicatorGravity
+            params.setMargins(
+                indicatorMarginHorizontal,
+                indicatorMarginVertical,
+                indicatorMarginHorizontal,
+                indicatorMarginVertical
+            )
+            mIndicator!!.layoutParams = params
+        }
+
+    fun setIndicatorVisibility(visibility: Int) {
+        mIndicator!!.visibility = visibility
     }
 
-    public void setIndicatorGravity(int gravity) {
-        mIndicatorGravity = gravity;
-        LayoutParams params = new LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        params.gravity = mIndicatorGravity;
-        params.setMargins(indicatorMarginHorizontal, indicatorMarginVertical, indicatorMarginHorizontal, indicatorMarginVertical);
-        mIndicator.setLayoutParams(params);
+    var orientation: Int
+        get() = mIndicator!!.orientation
+        set(orientation) {
+            mIndicator!!.orientation = orientation
+        }
+    var fillColor: Int
+        get() = mIndicator!!.fillColor
+        set(fillColor) {
+            mIndicator!!.fillColor = fillColor
+        }
+    var strokeColor: Int
+        get() = mIndicator!!.strokeColor
+        set(strokeColor) {
+            mIndicator!!.strokeColor = strokeColor
+        }
+    var strokeWidth: Float
+        get() = mIndicator!!.strokeWidth
+        set(strokeWidth) {
+            mIndicator!!.strokeWidth = strokeWidth
+            val padding = strokeWidth.toInt()
+            mIndicator!!.setPadding(padding, padding, padding, padding)
+        }
+
+    override fun setBackground(background: Drawable) {
+        super.setBackground(background)
     }
 
-    public void setIndicatorVisibility(int visibility) {
-        mIndicator.setVisibility(visibility);
-    }
+    val indicatorBackground: Drawable
+        get() = mIndicator!!.background
+    var pageColor: Int
+        get() = mIndicator!!.pageColor
+        set(pageColor) {
+            mIndicator!!.pageColor = pageColor
+        }
+    var isSnap: Boolean
+        get() = mIndicator!!.isSnap
+        set(snap) {
+            mIndicator!!.isSnap = snap
+        }
+    var radius: Float
+        get() = mIndicator!!.radius
+        set(radius) {
+            mIndicator!!.radius = radius
+        }
 
-    public int getOrientation() {
-        return mIndicator.getOrientation();
-    }
-
-    public int getFillColor() {
-        return mIndicator.getFillColor();
-    }
-
-    public int getStrokeColor() {
-        return mIndicator.getStrokeColor();
-    }
-
-    public void setSnap(boolean snap) {
-        mIndicator.setSnap(snap);
-    }
-
-    public void setRadius(float radius) {
-        mIndicator.setRadius(radius);
-    }
-
-    public float getStrokeWidth() {
-        return mIndicator.getStrokeWidth();
-    }
-
-    @Override
-    public void setBackground(Drawable background) {
-        super.setBackground(background);
-    }
-
-    public Drawable getIndicatorBackground() {
-        return mIndicator.getBackground();
-    }
-
-    public void setFillColor(int fillColor) {
-        mIndicator.setFillColor(fillColor);
-    }
-
-    public int getPageColor() {
-        return mIndicator.getPageColor();
-    }
-
-    public void setOrientation(int orientation) {
-        mIndicator.setOrientation(orientation);
-    }
-
-    public boolean isSnap() {
-        return mIndicator.isSnap();
-    }
-
-    public void setStrokeColor(int strokeColor) {
-        mIndicator.setStrokeColor(strokeColor);
-    }
-
-    public float getRadius() {
-        return mIndicator.getRadius();
-    }
-
-    public void setPageColor(int pageColor) {
-        mIndicator.setPageColor(pageColor);
-    }
-
-    public void setStrokeWidth(float strokeWidth) {
-        mIndicator.setStrokeWidth(strokeWidth);
-        int padding = (int) strokeWidth;
-        mIndicator.setPadding(padding, padding, padding, padding);
+    companion object {
+        private const val DEFAULT_SLIDE_INTERVAL = 3500
+        private const val DEFAULT_SLIDE_VELOCITY = 400
+        const val DEFAULT_INDICATOR_VISIBILITY = 0
     }
 }
